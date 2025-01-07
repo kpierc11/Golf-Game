@@ -6,9 +6,16 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include <Components/SphereComponent.h>
+#include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
+#include "Runtime/Engine/Classes/GameFramework/PlayerController.h"
+#include "EnhancedInputSubsystems.h"
+#include "EnhancedInputComponent.h"
+#include "InputMappingContext.h"
+#include "InputAction.h"
+#include "Engine/LocalPlayer.h"
 #include "GolfBall.generated.h"
-
-
 
 
 UCLASS()
@@ -23,6 +30,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void NotifyControllerChanged() override;
 
 public:	
 	// Called every frame
@@ -31,17 +39,67 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	//Camera Component
-	UPROPERTY(EditAnywhere)
-	AActor* CameraOne;
+	UFUNCTION()
+	void HandleLookingAround(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void CursorOverGolfBall(UPrimitiveComponent* TouchedComponent);
+
+	UFUNCTION()
+	void CursorEndOverGolfBall(UPrimitiveComponent* TouchedComponent);
+
+	UFUNCTION()
+	void GolfBallAim(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void LaunchGolfBall(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void GolfBallCameraScroll(const FInputActionValue& Value);
 
 	//Static Mesh Component
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* GolfBall;
 
 	// Sphere collider component
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(EditAnywhere)
 	USphereComponent* SphereCollider;
 
+	//Camera Component
+	UPROPERTY(EditAnywhere)
+	USpringArmComponent* CameraSpringArm;
 
+	//Camera Component
+	UPROPERTY(EditAnywhere)
+	UCameraComponent* Camera;
+
+	//Input Mapping Context
+	UPROPERTY(EditAnywhere, Category = "Enhanced Input")
+	UInputMappingContext* DefaultMappingContext;
+
+	//Input action for looking around
+	UPROPERTY(EditAnywhere, Category = "Enhanced Input")
+	UInputAction* LookAround;
+
+	//Input action for hitting golf ball
+	UPROPERTY(EditAnywhere, Category = "Enhanced Input")
+	UInputAction* HitGolfBall;
+
+	//Input action for rotation golf ball 
+	UPROPERTY(EditAnywhere, Category = "Enhanced Input")
+	UInputAction* AimGolfBall;
+
+	//Input action for zooming in and out on mouse wheel
+	UPROPERTY(EditAnywhere, Category = "Enhanced Input")
+	UInputAction* CameraScroll;
+
+	//Golf ball impact value
+	UPROPERTY(EditAnywhere)
+	float Speed;
+
+	UPROPERTY(EditAnywhere)
+	bool bIsGolfBallHit;
+
+	UPROPERTY(EditAnywhere)
+	bool bIsAimingGolfBall;
 };
