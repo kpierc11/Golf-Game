@@ -9,9 +9,9 @@ AGolfBall::AGolfBall()
 
     // Set this actor to call Tick() every frame.
     PrimaryActorTick.bCanEverTick = true;
-    bUseControllerRotationPitch = true;
-    bUseControllerRotationYaw = true;
-    bUseControllerRotationRoll = true;
+    bUseControllerRotationPitch = false;
+    bUseControllerRotationYaw = false;
+    bUseControllerRotationRoll = false;
 
     // Set up the mesh for the golf ball
     GolfBall = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
@@ -26,6 +26,41 @@ AGolfBall::AGolfBall()
     // Enable physics for the golf ball
     GolfBall->SetSimulatePhysics(true);
     GolfBall->SetEnableGravity(true);
+    
+    GolfBall->SetRelativeScale3D(FVector(.25f, .25f, .25f));
+
+    //Setup direction pointer 
+    DirectionPointer = CreateDefaultSubobject<UStaticMeshComponent>("DirectionComponent");
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAssetCone(TEXT("StaticMesh'/Engine/BasicShapes/Cone'"));
+
+    if (MeshAssetCone.Succeeded())
+    {
+        DirectionPointer->SetStaticMesh(MeshAssetCone.Object);
+    }
+
+    DirectionPointer->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
+    DirectionPointer->SetRelativeLocation(FVector(290.0f, GolfBall->K2_GetComponentLocation().Y, GolfBall->K2_GetComponentLocation().Z));
+    DirectionPointer->SetCollisionProfileName("OverlapAll");
+    DirectionPointer->bCastStaticShadow = false;
+    DirectionPointer->SetupAttachment(RootComponent);
+
+    //Setup golf launcher 
+    GolfLauncher = CreateDefaultSubobject<UStaticMeshComponent>("LauncherComponent");
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAssetLauncher(TEXT("StaticMesh'/Game/MiniGames/Levels/_GENERATED/Kaleb/Torus_E9BEF269.Torus_E9BEF269'"));
+
+    if (MeshAssetLauncher.Succeeded())
+    {
+        GolfLauncher->SetStaticMesh(MeshAssetLauncher.Object);
+    }
+
+    GolfLauncher->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
+    GolfLauncher->SetRelativeLocation(FVector(GolfBall->K2_GetComponentLocation().X, GolfBall->K2_GetComponentLocation().Y, GolfBall->K2_GetComponentLocation().Z));
+    GolfLauncher->SetCollisionProfileName("OverlapAll");
+    GolfLauncher->bCastStaticShadow = false;
+    GolfLauncher->SetupAttachment(RootComponent);
+
+
+
 
     // Create the Sphere Collider and set it as the root component
     SphereCollider = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
@@ -34,19 +69,26 @@ AGolfBall::AGolfBall()
 
     // Create Camera Boon (spring arm) and attach it to the SphereCollider (not the root)
     CameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-    CameraSpringArm->TargetArmLength = 1983.713257;
+    CameraSpringArm->TargetArmLength = 750.0f;
     CameraSpringArm->AddLocalRotation(FQuat(FRotator(331.0f, 180.0f, 0.0f)));
+    CameraSpringArm->bUsePawnControlRotation = true;
+    CameraSpringArm->bInheritPitch = false;
+    CameraSpringArm->bInheritYaw = false;
+    CameraSpringArm->bInheritRoll = false;
     CameraSpringArm->SetupAttachment(RootComponent);
 
     // Create the camera and attach it to the CameraBoon (spring arm)
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
     Camera->SetupAttachment(CameraSpringArm);
 
+    //Posses player
     AutoPossessPlayer = EAutoReceiveInput::Player0;
 
+    //Set Golf State
+    GolfState = EGolfState::EIdle;
+
     Speed = 100.0f;
-    bIsGolfBallHit = false;
-    bIsAimingGolfBall = false;
+  
 
 }
 
@@ -58,17 +100,13 @@ void AGolfBall::BeginPlay()
     GolfBall->OnBeginCursorOver.AddDynamic(this, &AGolfBall::CursorOverGolfBall);
     GolfBall->OnEndCursorOver.AddDynamic(this, &AGolfBall::CursorEndOverGolfBall);
 
-    FRotator NewRotation = FRotator(0.0f,0.0f,0.0f);
+    FRotator SpringArmRotation = CameraSpringArm->GetComponentRotation();
 
     // Set the new relative rotation for the mesh component
-    GolfBall->SetWorldRotation(NewRotation);
+    GolfBall->SetRelativeRotation(FRotator(0.0f, SpringArmRotation.Yaw, 0.0f));
 
-    //Lock Golfball in place when game starts
-    FBodyInstance* BodyInstance = GolfBall->GetBodyInstance();
-    //BodyInstance->bLockXTranslation = true;
-   // BodyInstance->bLockYTranslation = true;
-    //BodyInstance->bLockZTranslation = true;
-    //BodyInstance->SetDOFLock(EDOFMode::SixDOF);
+    GolfController = Cast<APlayerController>(Controller);
+
 
 }
 
@@ -76,31 +114,34 @@ void AGolfBall::BeginPlay()
 void AGolfBall::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-    FHitResult Hit;
-    FVector TraceStart = GolfBall->GetComponentLocation();
-    FRotator WorldRotation = GolfBall->GetComponentRotation();
-    FVector TraceEnd = (GolfBall->GetForwardVector() * 500.0f) + TraceStart;
-    FHitResult Result;
-    FCollisionQueryParams QueryParams;
+   
+   if (GolfController) {
+       float MouseX;
+       float MouseY;
+       FVector MouseWorld;
+       FVector MouseDirection;
 
-    QueryParams.AddIgnoredActor(this);
+       GolfController->GetMousePosition(MouseX, MouseY);
 
-    GetWorld()->LineTraceSingleByChannel(Result, TraceStart, TraceEnd, ECC_Pawn, QueryParams);
+       GolfController->DeprojectMousePositionToWorld(MouseWorld, MouseDirection);
 
-    DrawDebugLine(GetWorld(), TraceStart, TraceEnd, Hit.bBlockingHit ? FColor::Blue : FColor::Green, false, 5.0f, 0, 10.0f);
+       FVector GolfBallPos = GolfBall->GetComponentLocation();
 
-    //FVector CurrentGolfBallVelocity = GolfBall->GetComponentVelocity();
+       float MouseDistanceFromGolfBall = GolfBallPos.Y - MouseWorld.Y;
 
-    //UE_LOG(LogTemp, Warning, TEXT("Components Velocity->>>: X: %.2f, Y: %.2f, Z: %.2f"), CurrentGolfBallVelocity.X, CurrentGolfBallVelocity.Y, CurrentGolfBallVelocity.Z);
+  
+       FVector GolfBallCurrentVelocity = GolfBall->GetComponentVelocity();
 
+       if (GolfState != EGolfState::EAiming && FMath::Abs(GolfBallCurrentVelocity.X) < 0.1)
+       {
+           GolfState = EGolfState::EIdle;
+           GolfBall->SetRelativeRotation(FRotator(0.0f, -1.0f, 0.0f));
+       }
 
-   /* if (IsGolfBallHit && CurrentGolfBallVelocity.X <= 4.0f && CurrentGolfBallVelocity.Z != 0.0f)
-    {
-        BodyInstance->bLockXTranslation = true;
-        BodyInstance->bLockYTranslation = true;
-        BodyInstance->SetDOFLock(EDOFMode::SixDOF);
-        IsGolfBallHit = false;
-    }*/
+   }
+   //GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red,  MouseWorld.ToString());
+   //GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Blue, GolfBallPos.ToString());
+
 
 }
 
@@ -140,81 +181,98 @@ void AGolfBall::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 void AGolfBall::HandleLookingAround(const FInputActionValue& Value)
 {  
     FVector2D MouseAxisVector = Value.Get<FVector2D>();
-    APlayerController* PlayerController = Cast<APlayerController>(Controller);
+   
     FRotator SpringArmRotation = FRotator(MouseAxisVector.Y * 1.0f, MouseAxisVector.X * 1.0f, 0.0f);
 
-    if (!PlayerController->IsInputKeyDown(EKeys::LeftMouseButton))
-    {
-        bIsAimingGolfBall = false;
-    }
-
-    if (!bIsAimingGolfBall)
+    if (GolfState == EGolfState::EIdle)
     {
         CameraSpringArm->AddRelativeRotation(SpringArmRotation);
     }
-
-    //GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, TEXT("Looking around "));
 }
 
 void AGolfBall::CursorOverGolfBall(UPrimitiveComponent* TouchedComponent)
 {
-    bIsAimingGolfBall = true;
-    GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, TEXT("Cursor over Actor. "));
+    if (GolfState == EGolfState::EIdle && GolfController && !GolfController->IsInputKeyDown(EKeys::RightMouseButton))
+    {
+        GolfState = EGolfState::EAiming;
+    }
+
 }
 
 void AGolfBall::CursorEndOverGolfBall(UPrimitiveComponent* TouchedComponent)
 {
-    APlayerController* PlayerController = Cast<APlayerController>(Controller);
-    if (PlayerController->IsInputKeyDown(EKeys::LeftMouseButton))
+    if (GolfController && GolfController->IsInputKeyDown(EKeys::LeftMouseButton))
     {
-        bIsAimingGolfBall = true;
+        GolfState = EGolfState::EAiming;
     }
     else {
-        bIsAimingGolfBall = false;
+        GolfState = EGolfState::EIdle;
     }
-    GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, TEXT("Cursor not over actor. "));
 }
 
 
 void AGolfBall::GolfBallAim(const FInputActionValue& Value)
 {
+
+    DirectionPointer->SetVisibility(true);
+
     FVector2D MouseAxisVector = Value.Get<FVector2D>();
     FHitResult HitResult;
-    APlayerController* PlayerController = Cast<APlayerController>(Controller);
-    PlayerController->GetHitResultUnderCursor(ECollisionChannel::ECC_Pawn, false, HitResult);
-    FRotator GolfBallRotation = FRotator(0.0f, MouseAxisVector.X * -5.0f, 0.0f);
-    AActor* HitActor = HitResult.GetActor();
+   
 
-    if (bIsAimingGolfBall)
+    if (GolfController) 
     {
-       GolfBall->AddRelativeRotation(GolfBallRotation);
+        GolfController->GetHitResultUnderCursor(ECollisionChannel::ECC_Pawn, false, HitResult);
+        FRotator GolfBallRotation = FRotator(0.0f, MouseAxisVector.X * -5.0f, 0.0f);
+        AActor* HitActor = HitResult.GetActor();
+        FVector GolfBallCurrentVelocity = GolfBall->GetComponentVelocity();
+        FVector MouseWorld;
+        FVector MouseDirection;
+
+        GolfController->DeprojectMousePositionToWorld(MouseWorld, MouseDirection);
+
+        FVector GolfBallPos = GolfBall->GetComponentLocation();
+
+        float MouseDistanceFromGolfBall = GolfBallPos.Y - MouseWorld.Y;
+
+        if (GolfState == EGolfState::EAiming && FMath::Abs(GolfBallCurrentVelocity.X) < 0.5)
+        {
+
+            GolfBall->AddRelativeRotation(GolfBallRotation);
+        }
+
     }
+
 }
 
 void AGolfBall::LaunchGolfBall(const FInputActionValue& Value)
 {
+    FVector GolfBallCurrentVelocity = GolfBall->GetComponentVelocity();
 
-    if (bIsAimingGolfBall) {
-        FVector GolfBallForwardVect = GolfBall->GetForwardVector() * Speed;
-
+    if (GolfState == EGolfState::EAiming && FMath::Abs(GolfBallCurrentVelocity.X) < 0.5 ) {
+        FVector GolfBallForwardVect = GolfBall->GetForwardVector() * (Speed * 1000000.0f);
         GolfBall->AddForce(GolfBallForwardVect);
     }
 
-    GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, TEXT("Launced Golf Ball"));
+    GolfState = EGolfState::EMoving;
+
+    DirectionPointer->SetVisibility(false);
 }
 
 void AGolfBall::GolfBallCameraScroll(const FInputActionValue& Value)
 {
     FVector2D ZoomAxis = Value.Get<FVector2D>();
 
-    if (ZoomAxis.X == 1)
+    if (ZoomAxis.X == 1 && CameraSpringArm->TargetArmLength > 400.0f)
     {
         CameraSpringArm->TargetArmLength += -50.0f;
     }
-    else if (ZoomAxis.X == -1)
+    else if (ZoomAxis.X == -1 && CameraSpringArm->TargetArmLength < 3000.0f)
     {
         CameraSpringArm->TargetArmLength += 50.0f;
     }
 
+    //FString TargetArmLength = FString::SanitizeFloat(CameraSpringArm->TargetArmLength);
 }
+
 

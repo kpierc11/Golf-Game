@@ -33,6 +33,10 @@ protected:
 	virtual void NotifyControllerChanged() override;
 
 public:	
+
+	enum class EGolfState { EIdle, EAiming, EMoving };
+
+
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
@@ -57,9 +61,18 @@ public:
 	UFUNCTION()
 	void GolfBallCameraScroll(const FInputActionValue& Value);
 
+	//Basic Golfball State 
+	EGolfState GolfState;
+
 	//Static Mesh Component
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* GolfBall;
+
+	UPROPERTY(EditAnywhere)
+	UStaticMeshComponent* DirectionPointer;
+
+	UPROPERTY(EditAnywhere)
+	UStaticMeshComponent* GolfLauncher;
 
 	// Sphere collider component
 	UPROPERTY(EditAnywhere)
@@ -93,13 +106,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Enhanced Input")
 	UInputAction* CameraScroll;
 
+	UPROPERTY()
+	APlayerController* GolfController;
+
 	//Golf ball impact value
 	UPROPERTY(EditAnywhere)
 	float Speed;
 
-	UPROPERTY(EditAnywhere)
-	bool bIsGolfBallHit;
-
-	UPROPERTY(EditAnywhere)
-	bool bIsAimingGolfBall;
 };
