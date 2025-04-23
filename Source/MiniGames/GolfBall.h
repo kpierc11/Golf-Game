@@ -18,6 +18,7 @@
 #include "GolfBall.generated.h"
 
 
+
 UCLASS()
 class MINIGAMES_API AGolfBall : public APawn
 {
@@ -64,12 +65,18 @@ public:
 	//Basic Golfball State 
 	EGolfState GolfState;
 
+	UFUNCTION()
+	void OnBeginCursorOver(UPrimitiveComponent* TouchedComponent);
+
 	//Static Mesh Component
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* GolfBall;
 
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* DirectionPointer;
+
+	UPROPERTY(EditAnywhere)
+	UStaticMeshComponent* GolfNeutralDisc;
 
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* GolfLauncher;
@@ -112,5 +119,8 @@ public:
 	//Golf ball impact value
 	UPROPERTY(EditAnywhere)
 	float Speed;
+
+	UPROPERTY(EditAnywhere)
+	float MouseAimingStartPosition;
 
 };

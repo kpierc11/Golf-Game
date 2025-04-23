@@ -25,21 +25,5 @@ void AGolfPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 
-	InputComponent->BindAction("MouseClick", IE_Pressed, this, &AGolfPlayerController::GolfBallClicked);
-
 }
 
-
-void AGolfPlayerController::GolfBallClicked()
-{
-	FHitResult HitResult;
-	GetHitResultUnderCursor(ECollisionChannel::ECC_Pawn, false, HitResult);
-
-	if (HitResult.GetComponent())
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 2, FColor::Red, FString::Printf(TEXT("Mouse Click+++ Component: %s"), *HitResult.GetComponent()->GetName()));
-	}
-
-
-	
-}

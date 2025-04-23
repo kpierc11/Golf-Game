@@ -35,8 +35,7 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupInputComponent() override;
 
-	void GolfBallClicked();
-	
+
 };
 
 
