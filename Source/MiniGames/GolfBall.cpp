@@ -172,33 +172,33 @@ void AGolfBall::Tick(float DeltaTime)
 
 
 	
-	if(GolfController)
-	{
+	//if(GolfController)
+	//{
 
-		FHitResult Hit;
+	//	FHitResult Hit;
 
-		// We set up a line trace from our current location to a point 1000cm ahead of us
-		FVector MouseWorld;
-		FVector MouseDirection;
+	//	// We set up a line trace from our current location to a point 1000cm ahead of us
+	//	FVector MouseWorld;
+	//	FVector MouseDirection;
 
-		GolfController->DeprojectMousePositionToWorld(MouseWorld, MouseDirection);
-		FVector TraceStart = MouseWorld;
-		FVector TraceEnd = GetActorLocation() + GetActorForwardVector() * 1000.0f;
+	//	GolfController->DeprojectMousePositionToWorld(MouseWorld, MouseDirection);
+	//	FVector TraceStart = MouseWorld;
+	//	FVector TraceEnd = GetActorLocation() + GetActorForwardVector() * 1000.0f;
 
-		// You can use FCollisionQueryParams to further configure the query
-		// Here we add ourselves to the ignored list so we won't block the trace
-		FCollisionQueryParams QueryParams;
-		QueryParams.AddIgnoredActor(this);
+	//	// You can use FCollisionQueryParams to further configure the query
+	//	// Here we add ourselves to the ignored list so we won't block the trace
+	//	FCollisionQueryParams QueryParams;
+	//	QueryParams.AddIgnoredActor(this);
 
 
-		// To run the query, you need a pointer to the current level, which you can get from an Actor with GetWorld()
-	//UWorld()->LineTraceSingleByChannel runs a line trace and returns the first actor hit over the provided collision channel.
-		GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_EngineTraceChannel1, QueryParams);
+	//	// To run the query, you need a pointer to the current level, which you can get from an Actor with GetWorld()
+	////UWorld()->LineTraceSingleByChannel runs a line trace and returns the first actor hit over the provided collision channel.
+	//	GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECollisionChannel::ECC_EngineTraceChannel1, QueryParams);
 
-		// You can use DrawDebug helpers and the log to help visualize and debug your trace queries.
-		DrawDebugLine(GetWorld(), TraceStart, TraceEnd, Hit.bBlockingHit ? FColor::Blue : FColor::Red, false, 5.0f, 0, 0.2f);
-	
-	}
+	//	// You can use DrawDebug helpers and the log to help visualize and debug your trace queries.
+	//	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, Hit.bBlockingHit ? FColor::Blue : FColor::Red, false, 5.0f, 0, 0.2f);
+	//
+	//}
 
 }
 
@@ -259,15 +259,7 @@ void AGolfBall::CursorOverGolfBall(UPrimitiveComponent* TouchedComponent)
 	if (GolfState == EGolfState::EIdle && GolfController && GolfController->IsInputKeyDown(EKeys::LeftMouseButton))
 	{
 		GolfState = EGolfState::EAiming;
-		FVector MouseWorld;
-		FVector MouseDirection;
-
-		GolfController->DeprojectMousePositionToWorld(MouseWorld, MouseDirection);
-
-		FVector GolfBallPos = GolfBall->GetComponentLocation();
-
-		FVector MouseDistanceFromGolfBall = GolfBallPos - MouseWorld;
-		MouseAimingStartPosition = MouseDistanceFromGolfBall.Z;
+	
 	}
 
 }
@@ -307,13 +299,13 @@ void AGolfBall::GolfBallAim(const FInputActionValue& Value)
 
 		FVector GolfBallPos = GolfBall->GetComponentLocation();
 
-		FVector MouseDistanceFromGolfBall = GolfBallPos - MouseWorld;
+		//FVector MouseDistanceFromGolfBall = GolfBallPos - MouseWorld;
 
 
 
 		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Blue, FString::SanitizeFloat(MouseAimingStartPosition));
 
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, FString::SanitizeFloat(FMath::Abs(MouseDistanceFromGolfBall.Y)));
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, FString::SanitizeFloat(FMath::Abs(MouseWorld.X)));
 
 
 
@@ -335,15 +327,21 @@ void AGolfBall::LaunchGolfBall(const FInputActionValue& Value)
 {
 	FVector GolfBallCurrentVelocity = GolfBall->GetComponentVelocity();
 
+
+	AGolfPlayerState* GolfPlayerState = Cast<AGolfPlayerState>(GolfController->PlayerState);
+
+
 	if (GolfState == EGolfState::EAiming && FMath::Abs(GolfBallCurrentVelocity.X) < 0.5) {
 		FVector GolfBallForwardVect = GolfBall->GetForwardVector() * 20000.0f;
 		GolfBall->AddImpulse(GolfBallForwardVect);
+		GolfPlayerState->GolfHitCount += 1;
 	}
 
 	GolfState = EGolfState::EMoving;
 	DirectionPointer->SetVisibility(false);
 
-	//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, FString::SanitizeFloat(MouseDistanceFromGolfBall.Z));
+
+	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, FString::SanitizeFloat(GolfPlayerState->GetGolfHitCount()));
 }
 
 void AGolfBall::GolfBallCameraScroll(const FInputActionValue& Value)

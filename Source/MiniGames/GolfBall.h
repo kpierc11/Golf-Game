@@ -14,6 +14,7 @@
 #include "EnhancedInputComponent.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
+#include "GolfPlayerState.h"
 #include "Engine/LocalPlayer.h"
 #include "GolfBall.generated.h"
 
